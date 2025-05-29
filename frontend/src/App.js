@@ -49,7 +49,7 @@ const apiCall = async (endpoint, options = {}) => {
 function App() {
   const [currentView, setCurrentView] = useState('landing'); // landing, onboarding, vault-creation
   const [user, setUser] = useState(null);
-  const [vaults, setVaults] = useState([]);
+  const [vaults, setVaults] = useState([]); // Initialize as empty array
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 

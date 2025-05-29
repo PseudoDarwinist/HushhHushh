@@ -7,9 +7,9 @@ import logging
 from typing import List, Optional
 
 # Local imports
-from models import *
-from database import Database
-from auth import create_access_token, get_current_user
+from backend.models import *
+from backend.database import Database
+from backend.auth import create_access_token, get_current_user
 
 # Load environment variables
 ROOT_DIR = Path(__file__).parent

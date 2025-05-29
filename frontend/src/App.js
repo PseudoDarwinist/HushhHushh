@@ -106,13 +106,18 @@ function App() {
                     key="landing"
                     onNavigate={handleNavigation}
                     vaults={vaults}
+                    loading={loading}
+                    error={error}
+                    user={user}
+                    apiCall={apiCall}
                   />
                 )}
                 {currentView === 'onboarding' && (
                   <WhispererOnboarding 
                     key="onboarding"
                     onNavigate={handleNavigation}
-                    onComplete={(user) => handleNavigation('vault-creation', { user })}
+                    onComplete={(userData) => handleNavigation('vault-creation', userData)}
+                    apiCall={apiCall}
                   />
                 )}
                 {currentView === 'vault-creation' && (
@@ -121,6 +126,7 @@ function App() {
                     onNavigate={handleNavigation}
                     user={user}
                     onVaultCreated={(vault) => handleNavigation('landing', { vault })}
+                    apiCall={apiCall}
                   />
                 )}
               </AnimatePresence>

@@ -680,19 +680,28 @@ const WhispererOnboarding = ({ onNavigate, onComplete, apiCall }) => {
       // Register the user
       try {
         setLoading(true);
+        setError('');
+
+        console.log('Registering user with data:', formData);
+
         const response = await apiCall('/auth/register', {
           method: 'POST',
           body: JSON.stringify(formData)
         });
+
+        console.log('Registration response:', response);
 
         if (response.success) {
           onComplete({
             user: response.data.user,
             token: response.data.access_token
           });
+        } else {
+          setError(response.message || 'Registration failed. Please try again.');
         }
       } catch (error) {
-        setError('Registration failed. Please try again.');
+        console.error('Registration error:', error);
+        setError('Registration failed. Please check your internet connection and try again.');
       } finally {
         setLoading(false);
       }

@@ -22,7 +22,14 @@ const apiCall = async (endpoint, options = {}) => {
   };
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api${endpoint}`, {
+    // Use the correct API endpoint - if we're in production, use /api prefix
+    const apiUrl = API_BASE_URL.includes('preview.emergentagent.com') 
+      ? `${API_BASE_URL}/api${endpoint}`
+      : `${API_BASE_URL}/api${endpoint}`;
+    
+    console.log('Making API call to:', apiUrl);
+    
+    const response = await fetch(apiUrl, {
       ...options,
       headers
     });

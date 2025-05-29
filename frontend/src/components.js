@@ -1,10 +1,17 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Lock, Eye, Users, Zap, Upload, Target, Timer, Play, ArrowRight, Shield, Mic, DollarSign, Clock, Share2, CheckCircle, AlertCircle } from "lucide-react";
+import { Lock, Eye, Users, Zap, Upload, Target, Timer, Play, ArrowRight, Shield, Mic, DollarSign, Clock, Share2, CheckCircle, AlertCircle, LogOut } from "lucide-react";
 
 // Landing Page Component
-const LandingPage = ({ onNavigate, vaults }) => {
+const LandingPage = ({ onNavigate, vaults, loading, error, user, apiCall }) => {
   const [selectedVault, setSelectedVault] = useState(null);
+  const [showLogin, setShowLogin] = useState(false);
+
+  const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userData');
+    window.location.reload();
+  };
 
   return (
     <motion.div
@@ -27,7 +34,7 @@ const LandingPage = ({ onNavigate, vaults }) => {
             HushHush
           </span>
         </div>
-        <div className="flex space-x-4">
+        <div className="flex space-x-4 items-center">
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -35,13 +42,29 @@ const LandingPage = ({ onNavigate, vaults }) => {
           >
             Explore
           </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="px-6 py-2 bg-gradient-to-r from-cyan-600 to-purple-600 rounded-full text-white font-medium shadow-lg shadow-purple-500/25"
-          >
-            Sign In
-          </motion.button>
+          {user ? (
+            <div className="flex items-center space-x-4">
+              <span className="text-gray-300">Welcome, {user.username}</span>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleLogout}
+                className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 rounded-full text-white font-medium shadow-lg flex items-center space-x-2"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Logout</span>
+              </motion.button>
+            </div>
+          ) : (
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowLogin(true)}
+              className="px-6 py-2 bg-gradient-to-r from-cyan-600 to-purple-600 rounded-full text-white font-medium shadow-lg shadow-purple-500/25"
+            >
+              Sign In
+            </motion.button>
+          )}
         </div>
       </nav>
 
@@ -70,7 +93,7 @@ const LandingPage = ({ onNavigate, vaults }) => {
             <motion.button
               whileHover={{ scale: 1.05, boxShadow: "0 20px 40px rgba(34, 197, 94, 0.4)" }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => onNavigate('onboarding')}
+              onClick={() => user ? onNavigate('vault-creation') : setShowLogin(true)}
               className="group px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full text-white font-semibold text-lg shadow-lg shadow-emerald-500/25 flex items-center space-x-2"
             >
               <Mic className="w-5 h-5" />
@@ -101,16 +124,27 @@ const LandingPage = ({ onNavigate, vaults }) => {
             Live Vaults
           </h2>
           
-          <div className="grid md:grid-cols-2 gap-8">
-            {vaults.map((vault, index) => (
-              <VaultCard 
-                key={vault.id} 
-                vault={vault} 
-                index={index}
-                onClick={() => setSelectedVault(vault)}
-              />
-            ))}
-          </div>
+          {loading ? (
+            <div className="text-center">
+              <div className="animate-spin w-12 h-12 border-4 border-cyan-400 border-t-transparent rounded-full mx-auto"></div>
+              <p className="text-gray-400 mt-4">Loading secrets...</p>
+            </div>
+          ) : error ? (
+            <div className="text-center text-red-400">
+              <p>Error loading vaults: {error}</p>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {vaults.map((vault, index) => (
+                <VaultCard 
+                  key={vault.id} 
+                  vault={vault} 
+                  index={index}
+                  onClick={() => setSelectedVault(vault)}
+                />
+              ))}
+            </div>
+          )}
         </motion.div>
 
         {/* How It Works */}
@@ -153,6 +187,27 @@ const LandingPage = ({ onNavigate, vaults }) => {
           <VaultDetailModal 
             vault={selectedVault} 
             onClose={() => setSelectedVault(null)}
+            user={user}
+            apiCall={apiCall}
+            onLogin={() => setShowLogin(true)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Login Modal */}
+      <AnimatePresence>
+        {showLogin && (
+          <LoginModal 
+            onClose={() => setShowLogin(false)}
+            onSuccess={(userData) => {
+              setShowLogin(false);
+              onNavigate('landing', userData);
+            }}
+            onSignupClick={() => {
+              setShowLogin(false);
+              onNavigate('onboarding');
+            }}
+            apiCall={apiCall}
           />
         )}
       </AnimatePresence>
@@ -162,7 +217,7 @@ const LandingPage = ({ onNavigate, vaults }) => {
 
 // Vault Card Component
 const VaultCard = ({ vault, index, onClick }) => {
-  const progressPercentage = (vault.pledged / vault.goal) * 100;
+  const progressPercentage = vault.progress_percentage || 0;
   
   return (
     <motion.div
@@ -180,21 +235,6 @@ const VaultCard = ({ vault, index, onClick }) => {
       <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/20 to-purple-500/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 blur-sm"></div>
       
       <div className="relative z-10">
-        {/* Image */}
-        <div className="relative mb-4 rounded-xl overflow-hidden">
-          <img 
-            src={vault.image} 
-            alt={vault.title}
-            className="w-full h-40 object-cover filter blur-sm group-hover:blur-none transition-all duration-300"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-          <div className="absolute top-4 right-4">
-            <span className="px-3 py-1 bg-purple-600/80 rounded-full text-sm font-medium">
-              {vault.category}
-            </span>
-          </div>
-        </div>
-
         {/* Content */}
         <h3 className="text-xl font-bold mb-2 text-white group-hover:text-cyan-300 transition-colors">
           {vault.title}
@@ -203,11 +243,18 @@ const VaultCard = ({ vault, index, onClick }) => {
           {vault.preview}
         </p>
 
+        {/* Category */}
+        <div className="mb-4">
+          <span className="px-3 py-1 bg-purple-600/80 rounded-full text-sm font-medium">
+            {vault.category}
+          </span>
+        </div>
+
         {/* Progress */}
         <div className="mb-4">
           <div className="flex justify-between text-sm mb-2">
-            <span className="text-gray-300">₹{vault.pledged.toLocaleString()}</span>
-            <span className="text-gray-400">₹{vault.goal.toLocaleString()}</span>
+            <span className="text-gray-300">₹{vault.pledged_amount?.toLocaleString()}</span>
+            <span className="text-gray-400">₹{vault.funding_goal?.toLocaleString()}</span>
           </div>
           <div className="w-full bg-slate-700 rounded-full h-2">
             <motion.div
@@ -224,11 +271,11 @@ const VaultCard = ({ vault, index, onClick }) => {
           <div className="flex items-center space-x-4">
             <span className="flex items-center space-x-1 text-gray-400">
               <Users className="w-4 h-4" />
-              <span>{vault.backers}</span>
+              <span>{vault.backers_count}</span>
             </span>
             <span className="flex items-center space-x-1 text-gray-400">
               <Clock className="w-4 h-4" />
-              <span>{vault.timeLeft}</span>
+              <span>{vault.time_left}</span>
             </span>
           </div>
           <span className="text-cyan-400 font-medium">
@@ -263,9 +310,41 @@ const StepCard = ({ icon, number, title, description }) => {
 };
 
 // Vault Detail Modal Component
-const VaultDetailModal = ({ vault, onClose }) => {
+const VaultDetailModal = ({ vault, onClose, user, apiCall, onLogin }) => {
   const [pledgeAmount, setPledgeAmount] = useState(1000);
-  const progressPercentage = (vault.pledged / vault.goal) * 100;
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const progressPercentage = vault.progress_percentage || 0;
+
+  const handlePledge = async () => {
+    if (!user) {
+      onLogin();
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await apiCall('/pledges', {
+        method: 'POST',
+        body: JSON.stringify({
+          vault_id: vault.id,
+          amount: pledgeAmount
+        })
+      });
+
+      if (response.success) {
+        setMessage('Pledge successful! 🎉');
+        setTimeout(() => {
+          onClose();
+          window.location.reload(); // Refresh to show updated data
+        }, 2000);
+      }
+    } catch (error) {
+      setMessage('Failed to pledge. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <motion.div
@@ -284,25 +363,20 @@ const VaultDetailModal = ({ vault, onClose }) => {
       >
         {/* Header */}
         <div className="relative mb-6">
-          <img 
-            src={vault.image} 
-            alt={vault.title}
-            className="w-full h-64 object-cover rounded-2xl filter blur-sm"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent rounded-2xl"></div>
-          <div className="absolute bottom-6 left-6 right-6">
-            <h2 className="text-3xl font-bold text-white mb-2">{vault.title}</h2>
-            <span className="px-3 py-1 bg-purple-600 rounded-full text-sm font-medium">
-              {vault.category}
-            </span>
-          </div>
+          <h2 className="text-3xl font-bold text-white mb-2">{vault.title}</h2>
+          <span className="px-3 py-1 bg-purple-600 rounded-full text-sm font-medium">
+            {vault.category}
+          </span>
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 w-10 h-10 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-black/70 transition-colors"
+            className="absolute top-0 right-0 w-10 h-10 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-black/70 transition-colors"
           >
             ×
           </button>
         </div>
+
+        {/* Description */}
+        <p className="text-gray-300 mb-6">{vault.description}</p>
 
         {/* Progress Section */}
         <div className="mb-8 text-center">
@@ -343,15 +417,21 @@ const VaultDetailModal = ({ vault, onClose }) => {
 
           <div className="grid grid-cols-2 gap-8">
             <div>
-              <div className="text-2xl font-bold text-cyan-400">₹{vault.pledged.toLocaleString()}</div>
+              <div className="text-2xl font-bold text-cyan-400">₹{vault.pledged_amount?.toLocaleString()}</div>
               <div className="text-gray-400">Raised</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-purple-400">₹{vault.goal.toLocaleString()}</div>
+              <div className="text-2xl font-bold text-purple-400">₹{vault.funding_goal?.toLocaleString()}</div>
               <div className="text-gray-400">Goal</div>
             </div>
           </div>
         </div>
+
+        {message && (
+          <div className="mb-6 p-4 bg-green-500/20 border border-green-500/40 rounded-xl text-green-300 text-center">
+            {message}
+          </div>
+        )}
 
         {/* Pledge Section */}
         <div className="space-y-6">
@@ -378,10 +458,18 @@ const VaultDetailModal = ({ vault, onClose }) => {
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            className="w-full py-4 bg-gradient-to-r from-cyan-600 to-purple-600 rounded-xl text-white font-semibold text-lg shadow-lg shadow-purple-500/25 flex items-center justify-center space-x-2"
+            onClick={handlePledge}
+            disabled={loading}
+            className="w-full py-4 bg-gradient-to-r from-cyan-600 to-purple-600 rounded-xl text-white font-semibold text-lg shadow-lg shadow-purple-500/25 flex items-center justify-center space-x-2 disabled:opacity-50"
           >
-            <DollarSign className="w-5 h-5" />
-            <span>Pledge ₹{pledgeAmount.toLocaleString()}</span>
+            {loading ? (
+              <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full"></div>
+            ) : (
+              <>
+                <DollarSign className="w-5 h-5" />
+                <span>{user ? `Pledge ₹${pledgeAmount.toLocaleString()}` : 'Login to Pledge'}</span>
+              </>
+            )}
           </motion.button>
 
           <p className="text-center text-sm text-gray-400">
@@ -393,15 +481,165 @@ const VaultDetailModal = ({ vault, onClose }) => {
   );
 };
 
-// Whisperer Onboarding Component
-const WhispererOnboarding = ({ onNavigate, onComplete }) => {
+// Login Modal Component
+const LoginModal = ({ onClose, onSuccess, onSignupClick, apiCall }) => {
+  const [isLogin, setIsLogin] = useState(true);
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    username: '',
+    user_type: 'listener'
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const endpoint = isLogin ? '/auth/login' : '/auth/register';
+      const payload = isLogin 
+        ? { email: formData.email, password: formData.password }
+        : formData;
+
+      const response = await apiCall(endpoint, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+
+      if (response.success) {
+        onSuccess({
+          user: response.data.user,
+          token: response.data.access_token
+        });
+      }
+    } catch (error) {
+      setError(isLogin ? 'Invalid credentials' : 'Registration failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.8, opacity: 0 }}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-gradient-to-br from-slate-900 to-blue-950 rounded-3xl border border-cyan-500/30 p-8 max-w-md w-full"
+      >
+        <div className="text-center mb-6">
+          <h2 className="text-3xl font-bold text-white mb-2">
+            {isLogin ? 'Welcome Back' : 'Join HushHush'}
+          </h2>
+          <p className="text-gray-400">
+            {isLogin ? 'Sign in to your account' : 'Create your account'}
+          </p>
+        </div>
+
+        {error && (
+          <div className="mb-4 p-3 bg-red-500/20 border border-red-500/40 rounded-xl text-red-300 text-center">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {!isLogin && (
+            <input
+              type="text"
+              placeholder="Username"
+              value={formData.username}
+              onChange={(e) => setFormData({...formData, username: e.target.value})}
+              className="w-full p-4 bg-slate-800/50 border border-cyan-500/20 rounded-xl text-white placeholder-gray-400 focus:border-cyan-400/50 focus:outline-none transition-colors"
+              required
+            />
+          )}
+          
+          <input
+            type="email"
+            placeholder="Email"
+            value={formData.email}
+            onChange={(e) => setFormData({...formData, email: e.target.value})}
+            className="w-full p-4 bg-slate-800/50 border border-cyan-500/20 rounded-xl text-white placeholder-gray-400 focus:border-cyan-400/50 focus:outline-none transition-colors"
+            required
+          />
+          
+          <input
+            type="password"
+            placeholder="Password"
+            value={formData.password}
+            onChange={(e) => setFormData({...formData, password: e.target.value})}
+            className="w-full p-4 bg-slate-800/50 border border-cyan-500/20 rounded-xl text-white placeholder-gray-400 focus:border-cyan-400/50 focus:outline-none transition-colors"
+            required
+          />
+
+          {!isLogin && (
+            <select
+              value={formData.user_type}
+              onChange={(e) => setFormData({...formData, user_type: e.target.value})}
+              className="w-full p-4 bg-slate-800/50 border border-cyan-500/20 rounded-xl text-white focus:border-cyan-400/50 focus:outline-none transition-colors"
+            >
+              <option value="listener">Listener (Fund Secrets)</option>
+              <option value="whisperer">Whisperer (Share Secrets)</option>
+              <option value="both">Both</option>
+            </select>
+          )}
+
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            type="submit"
+            disabled={loading}
+            className="w-full py-4 bg-gradient-to-r from-cyan-600 to-purple-600 rounded-xl text-white font-semibold text-lg shadow-lg shadow-purple-500/25 flex items-center justify-center disabled:opacity-50"
+          >
+            {loading ? (
+              <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full"></div>
+            ) : (
+              isLogin ? 'Sign In' : 'Create Account'
+            )}
+          </motion.button>
+        </form>
+
+        <div className="text-center mt-6">
+          <p className="text-gray-400">
+            {isLogin ? "Don't have an account?" : "Already have an account?"}
+            <button
+              onClick={() => {
+                setIsLogin(!isLogin);
+                setError('');
+              }}
+              className="ml-2 text-cyan-400 hover:text-cyan-300 transition-colors"
+            >
+              {isLogin ? 'Sign up' : 'Sign in'}
+            </button>
+          </p>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
+// Whisperer Onboarding Component (Updated)
+const WhispererOnboarding = ({ onNavigate, onComplete, apiCall }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState({
-    name: '',
+    email: '',
+    username: '',
+    password: '',
     bio: '',
-    avatar: null,
-    verified: false
+    user_type: 'whisperer'
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const steps = [
     {
@@ -424,11 +662,29 @@ const WhispererOnboarding = ({ onNavigate, onComplete }) => {
     }
   ];
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
-      onComplete({ ...formData, id: Date.now() });
+      // Register the user
+      try {
+        setLoading(true);
+        const response = await apiCall('/auth/register', {
+          method: 'POST',
+          body: JSON.stringify(formData)
+        });
+
+        if (response.success) {
+          onComplete({
+            user: response.data.user,
+            token: response.data.access_token
+          });
+        }
+      } catch (error) {
+        setError('Registration failed. Please try again.');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -480,6 +736,12 @@ const WhispererOnboarding = ({ onNavigate, onComplete }) => {
             ))}
           </div>
         </div>
+
+        {error && (
+          <div className="mb-6 p-4 bg-red-500/20 border border-red-500/40 rounded-xl text-red-300 text-center">
+            {error}
+          </div>
+        )}
 
         {/* Step Content */}
         <AnimatePresence mode="wait">
@@ -538,10 +800,24 @@ const WhispererOnboarding = ({ onNavigate, onComplete }) => {
               <div className="space-y-6">
                 <div className="space-y-4">
                   <input
+                    type="email"
+                    placeholder="Your email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                    className="w-full p-4 bg-slate-800/50 border border-cyan-500/20 rounded-xl text-white placeholder-gray-400 focus:border-cyan-400/50 focus:outline-none transition-colors"
+                  />
+                  <input
                     type="text"
-                    placeholder="Your anonymous name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    placeholder="Your anonymous username"
+                    value={formData.username}
+                    onChange={(e) => setFormData({...formData, username: e.target.value})}
+                    className="w-full p-4 bg-slate-800/50 border border-cyan-500/20 rounded-xl text-white placeholder-gray-400 focus:border-cyan-400/50 focus:outline-none transition-colors"
+                  />
+                  <input
+                    type="password"
+                    placeholder="Create a password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({...formData, password: e.target.value})}
                     className="w-full p-4 bg-slate-800/50 border border-cyan-500/20 rounded-xl text-white placeholder-gray-400 focus:border-cyan-400/50 focus:outline-none transition-colors"
                   />
                   <textarea
@@ -559,10 +835,17 @@ const WhispererOnboarding = ({ onNavigate, onComplete }) => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={handleNext}
-              className={`px-12 py-4 bg-gradient-to-r ${getStepColor(steps[currentStep])} rounded-full text-white font-semibold text-lg shadow-lg flex items-center space-x-2 mx-auto`}
+              disabled={loading}
+              className={`px-12 py-4 bg-gradient-to-r ${getStepColor(steps[currentStep])} rounded-full text-white font-semibold text-lg shadow-lg flex items-center space-x-2 mx-auto disabled:opacity-50`}
             >
-              <span>{currentStep === steps.length - 1 ? "Complete Setup" : "Continue"}</span>
-              <ArrowRight className="w-5 h-5" />
+              {loading ? (
+                <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full"></div>
+              ) : (
+                <>
+                  <span>{currentStep === steps.length - 1 ? "Complete Setup" : "Continue"}</span>
+                  <ArrowRight className="w-5 h-5" />
+                </>
+              )}
             </motion.button>
           </motion.div>
         </AnimatePresence>
@@ -571,19 +854,23 @@ const WhispererOnboarding = ({ onNavigate, onComplete }) => {
   );
 };
 
-// Vault Creation Component  
-const VaultCreation = ({ onNavigate, user, onVaultCreated }) => {
+// Vault Creation Component (Updated)
+const VaultCreation = ({ onNavigate, user, onVaultCreated, apiCall }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [vaultData, setVaultData] = useState({
     title: '',
     description: '',
     category: 'Unhinged',
-    goal: 25000,
-    duration: 14,
-    secretType: 'text',
+    secret_type: 'text',
     content: '',
-    preview: ''
+    preview: '',
+    funding_goal: 25000,
+    duration_days: 14,
+    content_warnings: [],
+    tags: []
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const steps = [
     { title: "Upload Secret", icon: <Upload className="w-8 h-8" /> },
@@ -592,20 +879,26 @@ const VaultCreation = ({ onNavigate, user, onVaultCreated }) => {
     { title: "Preview", icon: <Eye className="w-8 h-8" /> }
   ];
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
       // Create vault
-      const newVault = {
-        id: Date.now(),
-        ...vaultData,
-        pledged: 0,
-        backers: 0,
-        timeLeft: `${vaultData.duration} days`,
-        image: "https://images.unsplash.com/photo-1534294668821-28a3054f4256?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NjZ8MHwxfHNlYXJjaHwxfHxkYXJrJTIwbXlzdGVyaW91c3xlbnwwfHx8cHVycGxlfDE3NDg0OTQ0MTZ8MA&ixlib=rb-4.1.0&q=85"
-      };
-      onVaultCreated(newVault);
+      try {
+        setLoading(true);
+        const response = await apiCall('/vaults', {
+          method: 'POST',
+          body: JSON.stringify(vaultData)
+        });
+
+        if (response.success) {
+          onVaultCreated(response.data);
+        }
+      } catch (error) {
+        setError('Failed to create vault. Please try again.');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -672,6 +965,12 @@ const VaultCreation = ({ onNavigate, user, onVaultCreated }) => {
           ))}
         </div>
 
+        {error && (
+          <div className="mb-6 p-4 bg-red-500/20 border border-red-500/40 rounded-xl text-red-300 text-center">
+            {error}
+          </div>
+        )}
+
         {/* Step Content */}
         <AnimatePresence mode="wait">
           <motion.div
@@ -690,9 +989,9 @@ const VaultCreation = ({ onNavigate, user, onVaultCreated }) => {
                 <div className="space-y-4">
                   <div className="flex space-x-4">
                     <button
-                      onClick={() => setVaultData({...vaultData, secretType: 'text'})}
+                      onClick={() => setVaultData({...vaultData, secret_type: 'text'})}
                       className={`flex-1 p-4 rounded-xl border-2 transition-all ${
-                        vaultData.secretType === 'text'
+                        vaultData.secret_type === 'text'
                           ? 'border-cyan-400 bg-cyan-400/10'
                           : 'border-gray-600 bg-slate-700/50'
                       }`}
@@ -703,9 +1002,9 @@ const VaultCreation = ({ onNavigate, user, onVaultCreated }) => {
                       </div>
                     </button>
                     <button
-                      onClick={() => setVaultData({...vaultData, secretType: 'audio'})}
+                      onClick={() => setVaultData({...vaultData, secret_type: 'audio'})}
                       className={`flex-1 p-4 rounded-xl border-2 transition-all ${
-                        vaultData.secretType === 'audio'
+                        vaultData.secret_type === 'audio'
                           ? 'border-cyan-400 bg-cyan-400/10'
                           : 'border-gray-600 bg-slate-700/50'
                       }`}
@@ -717,7 +1016,7 @@ const VaultCreation = ({ onNavigate, user, onVaultCreated }) => {
                     </button>
                   </div>
 
-                  {vaultData.secretType === 'text' ? (
+                  {vaultData.secret_type === 'text' ? (
                     <textarea
                       placeholder="Share your secret here... The more intriguing, the more funding you'll get."
                       value={vaultData.content}
@@ -800,15 +1099,15 @@ const VaultCreation = ({ onNavigate, user, onVaultCreated }) => {
                 <div className="space-y-6">
                   <div>
                     <label className="block text-white font-medium mb-3">
-                      Funding Goal: ₹{vaultData.goal.toLocaleString()}
+                      Funding Goal: ₹{vaultData.funding_goal.toLocaleString()}
                     </label>
                     <input
                       type="range"
                       min="5000"
                       max="100000"
                       step="5000"
-                      value={vaultData.goal}
-                      onChange={(e) => setVaultData({...vaultData, goal: Number(e.target.value)})}
+                      value={vaultData.funding_goal}
+                      onChange={(e) => setVaultData({...vaultData, funding_goal: Number(e.target.value)})}
                       className="w-full h-3 bg-slate-700 rounded-lg appearance-none cursor-pointer slider"
                     />
                     <div className="flex justify-between text-sm text-gray-400 mt-2">
@@ -819,15 +1118,15 @@ const VaultCreation = ({ onNavigate, user, onVaultCreated }) => {
 
                   <div>
                     <label className="block text-white font-medium mb-3">
-                      Duration: {vaultData.duration} days
+                      Duration: {vaultData.duration_days} days
                     </label>
                     <input
                       type="range"
                       min="3"
                       max="30"
                       step="1"
-                      value={vaultData.duration}
-                      onChange={(e) => setVaultData({...vaultData, duration: Number(e.target.value)})}
+                      value={vaultData.duration_days}
+                      onChange={(e) => setVaultData({...vaultData, duration_days: Number(e.target.value)})}
                       className="w-full h-3 bg-slate-700 rounded-lg appearance-none cursor-pointer slider"
                     />
                     <div className="flex justify-between text-sm text-gray-400 mt-2">
@@ -841,20 +1140,20 @@ const VaultCreation = ({ onNavigate, user, onVaultCreated }) => {
                     <div className="space-y-2 text-gray-300">
                       <div className="flex justify-between">
                         <span>Funding Goal</span>
-                        <span>₹{vaultData.goal.toLocaleString()}</span>
+                        <span>₹{vaultData.funding_goal.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Platform Fee (5%)</span>
-                        <span>-₹{(vaultData.goal * 0.05).toLocaleString()}</span>
+                        <span>-₹{(vaultData.funding_goal * 0.05).toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Credibility Bond (5%)</span>
-                        <span>-₹{(vaultData.goal * 0.05).toLocaleString()}</span>
+                        <span>-₹{(vaultData.funding_goal * 0.05).toLocaleString()}</span>
                       </div>
                       <hr className="border-gray-600" />
                       <div className="flex justify-between text-cyan-400 font-semibold">
                         <span>You'll Receive</span>
-                        <span>₹{(vaultData.goal * 0.9).toLocaleString()}</span>
+                        <span>₹{(vaultData.funding_goal * 0.9).toLocaleString()}</span>
                       </div>
                     </div>
                   </div>
@@ -884,11 +1183,11 @@ const VaultCreation = ({ onNavigate, user, onVaultCreated }) => {
 
                   <div className="grid grid-cols-3 gap-4 mb-6">
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-cyan-400">₹{vaultData.goal.toLocaleString()}</div>
+                      <div className="text-2xl font-bold text-cyan-400">₹{vaultData.funding_goal.toLocaleString()}</div>
                       <div className="text-gray-400 text-sm">Goal</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-purple-400">{vaultData.duration}</div>
+                      <div className="text-2xl font-bold text-purple-400">{vaultData.duration_days}</div>
                       <div className="text-gray-400 text-sm">Days</div>
                     </div>
                     <div className="text-center">
@@ -934,9 +1233,14 @@ const VaultCreation = ({ onNavigate, user, onVaultCreated }) => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={handleNext}
-                className="px-8 py-3 bg-gradient-to-r from-cyan-600 to-purple-600 rounded-xl text-white font-semibold shadow-lg shadow-purple-500/25"
+                disabled={loading}
+                className="px-8 py-3 bg-gradient-to-r from-cyan-600 to-purple-600 rounded-xl text-white font-semibold shadow-lg shadow-purple-500/25 disabled:opacity-50 flex items-center space-x-2"
               >
-                {currentStep === steps.length - 1 ? 'Launch Vault' : 'Continue'}
+                {loading ? (
+                  <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full"></div>
+                ) : (
+                  <span>{currentStep === steps.length - 1 ? 'Launch Vault' : 'Continue'}</span>
+                )}
               </motion.button>
             </div>
           </motion.div>

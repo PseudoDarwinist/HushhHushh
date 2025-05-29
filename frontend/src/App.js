@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -9,39 +9,88 @@ import LandingPage from "./components";
 import WhispererOnboarding from "./components";
 import VaultCreation from "./components";
 
+// API Configuration
+const API_BASE_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
+
+// API Helper Functions
+const apiCall = async (endpoint, options = {}) => {
+  const token = localStorage.getItem('authToken');
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token && { 'Authorization': `Bearer ${token}` }),
+    ...options.headers
+  };
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api${endpoint}`, {
+      ...options,
+      headers
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('API call error:', error);
+    throw error;
+  }
+};
+
 function App() {
   const [currentView, setCurrentView] = useState('landing'); // landing, onboarding, vault-creation
   const [user, setUser] = useState(null);
-  const [vaults, setVaults] = useState([
-    {
-      id: 1,
-      title: "Bollywood Star's On-Set Meltdown",
-      category: "Unhinged",
-      goal: 50000,
-      pledged: 12000,
-      timeLeft: "11 days",
-      backers: 24,
-      preview: "A major Bollywood actor threw a chair during filming...",
-      image: "https://images.pexels.com/photos/3156660/pexels-photo-3156660.jpeg"
-    },
-    {
-      id: 2,
-      title: "CEO's Midnight Crisis Call",
-      category: "Unhinged", 
-      goal: 25000,
-      pledged: 8500,
-      timeLeft: "6 days",
-      backers: 15,
-      preview: "What happens when a startup CEO discovers their biggest client...",
-      image: "https://images.pexels.com/photos/8404994/pexels-photo-8404994.jpeg"
+  const [vaults, setVaults] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Load user from localStorage on app start
+  useEffect(() => {
+    const token = localStorage.getItem('authToken');
+    const userData = localStorage.getItem('userData');
+    
+    if (token && userData) {
+      try {
+        setUser(JSON.parse(userData));
+      } catch (e) {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('userData');
+      }
     }
-  ]);
+    
+    loadVaults();
+  }, []);
+
+  const loadVaults = async () => {
+    try {
+      setLoading(true);
+      const response = await apiCall('/vaults?limit=20');
+      if (response.success) {
+        setVaults(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to load vaults:', error);
+      setError('Failed to load vaults');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleNavigation = (view, data = null) => {
     setCurrentView(view);
     if (data) {
-      if (data.user) setUser(data.user);
-      if (data.vault) setVaults([...vaults, data.vault]);
+      if (data.user) {
+        setUser(data.user);
+        localStorage.setItem('userData', JSON.stringify(data.user));
+      }
+      if (data.token) {
+        localStorage.setItem('authToken', data.token);
+      }
+      if (data.vault) {
+        loadVaults(); // Reload vaults to get updated data
+      }
     }
   };
 

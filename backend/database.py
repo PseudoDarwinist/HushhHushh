@@ -1,7 +1,7 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 from typing import List, Optional, Dict, Any
-from models import *
+from backend.models import *
 from datetime import datetime, timedelta
 import bcrypt
 import jwt

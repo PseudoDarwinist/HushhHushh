@@ -133,7 +133,7 @@ const LandingPage = ({ onNavigate, vaults, loading, error, user, apiCall }) => {
             <div className="text-center text-red-400">
               <p>Error loading vaults: {error}</p>
             </div>
-          ) : (
+          ) : vaults && vaults.length > 0 ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
               {vaults.map((vault, index) => (
                 <VaultCard 
@@ -143,6 +143,10 @@ const LandingPage = ({ onNavigate, vaults, loading, error, user, apiCall }) => {
                   onClick={() => setSelectedVault(vault)}
                 />
               ))}
+            </div>
+          ) : (
+            <div className="text-center text-gray-400">
+              <p>No vaults available yet. Be the first to create one!</p>
             </div>
           )}
         </motion.div>

@@ -508,19 +508,26 @@ const LoginModal = ({ onClose, onSuccess, onSignupClick, apiCall }) => {
         ? { email: formData.email, password: formData.password }
         : formData;
 
+      console.log('Submitting to:', endpoint, 'with data:', payload);
+
       const response = await apiCall(endpoint, {
         method: 'POST',
         body: JSON.stringify(payload)
       });
+
+      console.log('Response:', response);
 
       if (response.success) {
         onSuccess({
           user: response.data.user,
           token: response.data.access_token
         });
+      } else {
+        setError(response.message || (isLogin ? 'Invalid credentials' : 'Registration failed'));
       }
     } catch (error) {
-      setError(isLogin ? 'Invalid credentials' : 'Registration failed');
+      console.error('Auth error:', error);
+      setError(isLogin ? 'Invalid credentials' : 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }

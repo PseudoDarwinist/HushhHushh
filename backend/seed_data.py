@@ -1,5 +1,5 @@
 from database import Database
-from models import *
+from backend.models import *
 import asyncio
 import os
 from datetime import datetime, timedelta
